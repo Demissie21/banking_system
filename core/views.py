@@ -2,9 +2,9 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
+from django.contrib.auth.hashers import check_password
 from .models import Account, Transaction
-from .serializers import TransactionSerializer
-from rest_framework.response import Response
+from .serializers import DepositSerializer, WithdrawSerializer, TransferSerializer
 from rest_framework.decorators import api_view
 
 @api_view(['GET'])
@@ -19,69 +19,84 @@ class DepositView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        amount = request.data.get('amount')
-        account = Account.objects.get(user=request.user)
-        account.balance += float(amount)
-        account.save()
+        serializer = DepositSerializer(data=request.data)
+        if serializer.is_valid():
+            amount = serializer.validated_data['amount']
+            account = Account.objects.get(user=request.user)
+            account.balance += amount
+            account.save()
 
-        Transaction.objects.create(
-            sender=request.user,
-            transaction_type='deposit',
-            amount=amount
-        )
-        return Response({"message": "Deposit successful."}, status=status.HTTP_200_OK)
+            Transaction.objects.create(
+                sender=request.user,
+                transaction_type='deposit',
+                amount=amount
+            )
+            return Response({"message": "Deposit successful."}, status=status.HTTP_200_OK)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 class WithdrawView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        amount = float(request.data.get('amount'))
-        account = Account.objects.get(user=request.user)
+        serializer = WithdrawSerializer(data=request.data)
+        if serializer.is_valid():
+            amount = serializer.validated_data['amount']
+            account = Account.objects.get(user=request.user)
 
-        if account.balance >= amount:
-            account.balance -= amount
-            account.save()
+            if account.balance >= amount:
+                account.balance -= amount
+                account.save()
 
-            Transaction.objects.create(
-                sender=request.user,
-                transaction_type='withdraw',
-                amount=amount
-            )
-            return Response({"message": "Withdrawal successful."}, status=status.HTTP_200_OK)
+                Transaction.objects.create(
+                    sender=request.user,
+                    transaction_type='withdraw',
+                    amount=amount
+                )
+                return Response({"message": "Withdrawal successful."}, status=status.HTTP_200_OK)
+            else:
+                return Response({"error": "Insufficient funds."}, status=status.HTTP_400_BAD_REQUEST)
         else:
-            return Response({"error": "Insufficient funds."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 class TransferView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        receiver_username = request.data.get('receiver')
-        amount = float(request.data.get('amount'))
-        pin = request.data.get('pin')
+        serializer = TransferSerializer(data=request.data)
+        if serializer.is_valid():
+            receiver_username = serializer.validated_data['receiver']
+            amount = serializer.validated_data['amount']
+            pin = serializer.validated_data['pin']
 
-        try:
-            sender_account = Account.objects.get(user=request.user)
-            receiver_account = Account.objects.get(user__username=receiver_username)
-        except Account.DoesNotExist:
-            return Response({"error": "Receiver account not found."}, status=status.HTTP_404_NOT_FOUND)
+            try:
+                sender_account = Account.objects.get(user=request.user)
+                receiver_account = Account.objects.get(user__username=receiver_username)
+            except Account.DoesNotExist:
+                return Response({"error": "Receiver account not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        if sender_account.pin != pin:
-            return Response({"error": "Invalid PIN."}, status=status.HTTP_403_FORBIDDEN)
+            # Secure PIN check
+            if not check_password(pin, sender_account.pin):
+                return Response({"error": "Invalid PIN."}, status=status.HTTP_403_FORBIDDEN)
 
-        if sender_account.balance < amount:
-            return Response({"error": "Insufficient funds."}, status=status.HTTP_400_BAD_REQUEST)
+            if sender_account.balance < amount:
+                return Response({"error": "Insufficient funds."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Transfer logic
-        sender_account.balance -= amount
-        receiver_account.balance += amount
-        sender_account.save()
-        receiver_account.save()
+            # Transfer logic
+            sender_account.balance -= amount
+            receiver_account.balance += amount
+            sender_account.save()
+            receiver_account.save()
 
-        Transaction.objects.create(
-            sender=request.user,
-            receiver=receiver_account.user,
-            transaction_type='transfer',
-            amount=amount
-        )
+            Transaction.objects.create(
+                sender=request.user,
+                receiver=receiver_account.user,
+                transaction_type='transfer',
+                amount=amount
+            )
 
-        return Response({"message": "Transfer successful."}, status=status.HTTP_200_OK)
+            return Response({"message": "Transfer successful."}, status=status.HTTP_200_OK)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

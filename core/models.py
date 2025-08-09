@@ -1,10 +1,17 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.contrib.auth.hashers import make_password, check_password
 
 class Account(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     balance = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
-    pin = models.CharField(max_length=6)  # store securely in real apps
+    pin = models.CharField(max_length=128)  # hashed PIN
+
+    def set_pin(self, raw_pin):
+        self.pin = make_password(raw_pin)
+
+    def check_pin(self, raw_pin):
+        return check_password(raw_pin, self.pin)
 
     def __str__(self):
         return f"{self.user.username}'s Account"
