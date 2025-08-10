@@ -6,6 +6,48 @@ from django.contrib.auth.hashers import check_password
 from .models import Account, Transaction
 from .serializers import DepositSerializer, WithdrawSerializer, TransferSerializer
 from rest_framework.decorators import api_view
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from django.shortcuts import get_object_or_404
+from django.contrib.auth.hashers import check_password
+from .models import Account, Transaction
+from .serializers import TransactionSerializer
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.authentication import SessionAuthentication, BasicAuthentication
+class TransferFundsView(APIView):
+    authentication_classes = [SessionAuthentication]  # or JWT if you're using it
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        sender = get_object_or_404(Account, user=request.user)
+        ...
+
+class TransferFundsView(APIView):
+    def post(self, request):
+        sender = get_object_or_404(Account, user=request.user)
+        receiver_id = request.data.get("receiver_id")
+        amount = float(request.data.get("amount", 0))
+        pin = request.data.get("pin")
+
+        if not check_password(pin, sender.pin):
+            return Response({"error": "Invalid PIN"}, status=status.HTTP_403_FORBIDDEN)
+
+        if amount <= 0 or sender.balance < amount:
+            return Response({"error": "Insufficient funds or invalid amount"}, status=status.HTTP_400_BAD_REQUEST)
+
+        receiver = get_object_or_404(Account, id=receiver_id)
+
+        # Transfer funds
+        sender.balance -= amount
+        receiver.balance += amount
+        sender.save()
+        receiver.save()
+
+        # Save transaction
+        transaction = Transaction.objects.create(sender=sender, receiver=receiver, amount=amount)
+
+        return Response(TransactionSerializer(transaction).data, status=status.HTTP_201_CREATED)
 
 @api_view(['GET'])
 def api_root(request):
