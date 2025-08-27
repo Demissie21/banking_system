@@ -1,0 +1,10 @@
+<h1>Welcome, {{ user.username }}!</h1>
+
+{% if account %}
+    <p>Account Number: {{ account.account_number }}</p>
+    <p>Balance: ${{ account.balance }}</p>
+{% else %}
+    <p>No account found.</p>
+{% endif %}
+
+<a href="{% url 'logout' %}">Logout</a>
