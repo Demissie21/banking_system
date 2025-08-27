@@ -13,6 +13,80 @@ from .models import Account, Transaction
 from .serializers import DepositSerializer, WithdrawSerializer, TransferSerializer, TransactionSerializer
 from django.contrib.auth.forms import UserCreationForm
 from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required
+from .models import BankAccount, Transaction
+from .forms import DepositForm, WithdrawForm, TransferForm
+from django.contrib.auth.models import User
+from django.contrib import messages
+
+@login_required
+def dashboard(request):
+    account = get_object_or_404(BankAccount, user=request.user)
+    transactions = Transaction.objects.filter(sender=request.user) | Transaction.objects.filter(receiver=request.user)
+    return render(request, 'core/dashboard.html', {'account': account, 'transactions': transactions})
+
+@login_required
+def deposit(request):
+    account = get_object_or_404(BankAccount, user=request.user)
+    if request.method == "POST":
+        form = DepositForm(request.POST)
+        if form.is_valid():
+            amount = form.cleaned_data['amount']
+            account.balance += amount
+            account.save()
+            Transaction.objects.create(sender=None, receiver=request.user, transaction_type="Deposit", amount=amount)
+            messages.success(request, f"Deposited {amount} successfully!")
+            return redirect('dashboard')
+    else:
+        form = DepositForm()
+    return render(request, 'core/deposit.html', {'form': form})
+
+@login_required
+def withdraw(request):
+    account = get_object_or_404(BankAccount, user=request.user)
+    if request.method == "POST":
+        form = WithdrawForm(request.POST)
+        if form.is_valid():
+            amount = form.cleaned_data['amount']
+            if account.balance >= amount:
+                account.balance -= amount
+                account.save()
+                Transaction.objects.create(sender=request.user, receiver=None, transaction_type="Withdrawal", amount=amount)
+                messages.success(request, f"Withdrew {amount} successfully!")
+                return redirect('dashboard')
+            else:
+                messages.error(request, "Insufficient balance!")
+    else:
+        form = WithdrawForm()
+    return render(request, 'core/withdraw.html', {'form': form})
+
+@login_required
+def transfer(request):
+    sender_account = get_object_or_404(BankAccount, user=request.user)
+    if request.method == "POST":
+        form = TransferForm(request.POST)
+        if form.is_valid():
+            receiver_username = form.cleaned_data['receiver_username']
+            amount = form.cleaned_data['amount']
+            try:
+                receiver_user = User.objects.get(username=receiver_username)
+                receiver_account = get_object_or_404(BankAccount, user=receiver_user)
+                if sender_account.balance >= amount:
+                    sender_account.balance -= amount
+                    receiver_account.balance += amount
+                    sender_account.save()
+                    receiver_account.save()
+                    Transaction.objects.create(sender=request.user, receiver=receiver_user, transaction_type="Transfer", amount=amount)
+                    messages.success(request, f"Transferred {amount} to {receiver_username} successfully!")
+                    return redirect('dashboard')
+                else:
+                    messages.error(request, "Insufficient balance!")
+            except User.DoesNotExist:
+                messages.error(request, "Receiver does not exist!")
+    else:
+        form = TransferForm()
+    return render(request, 'core/transfer.html', {'form': form})
 
 def register_view(request):
     if request.method == 'POST':

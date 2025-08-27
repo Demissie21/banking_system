@@ -1,16 +1,10 @@
 from django.urls import path
-from .views import (
-    DepositView,
-    WithdrawView,
-    TransferView,
-    TransactionHistoryView,
-    api_root
-)
+from . import views
 
 urlpatterns = [
-    path('', api_root, name='api-root'),
-    path('deposit/', DepositView.as_view(), name='deposit'),
-    path('withdraw/', WithdrawView.as_view(), name='withdraw'),
-    path('transfer/', TransferView.as_view(), name='transfer'),
-    path('transactions/', TransactionHistoryView.as_view(), name='transactions'),
+    
+    path('dashboard/', views.dashboard, name='dashboard'),
+    path('deposit/', views.deposit, name='deposit'),
+    path('withdraw/', views.withdraw, name='withdraw'),
+    path('transfer/', views.transfer, name='transfer'),
 ]

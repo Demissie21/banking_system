@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dashboard</title>
+</head>
+<body>
+    <h2>Welcome, {{ user.username }}!</h2>
+    <p>This is your banking dashboard.</p>
+    <ul>
+        <li><a href="#">Create Account</a></li>
+        <li><a href="#">Deposit</a></li>
+        <li><a href="#">Withdraw</a></li>
+        <li><a href="#">Transfer Funds</a></li>
+        <li><a href="#">Check Balance</a></li>
+        <li><a href="#">Transaction History</a></li>
+    </ul>
+    <p><a href="{% url 'logout' %}">Logout</a></p>
+</body>
+</html>

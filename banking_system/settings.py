@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'core',
+    'users',
 ]
 
 MIDDLEWARE = [
@@ -113,3 +114,9 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Authentication redirect URLs
 LOGIN_REDIRECT_URL = '/dashboard/'  # Redirect after login
 LOGIN_URL = '/login/'  # Login page URL
+# Redirect after login/logout
+LOGIN_URL = "login"
+LOGIN_REDIRECT_URL = "dashboard"
+LOGOUT_REDIRECT_URL = "login"
+
+# Templates setting already exists by default
